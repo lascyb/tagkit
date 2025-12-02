@@ -508,13 +508,13 @@ func TestParseTagValue_AllCases(t *testing.T) {
 	testCases := []struct {
 		name     string
 		input    string
-		expected *tagkit.Result
+		expected *tagkit.TagValue
 		hasError bool
 	}{
 		{
 			name:  "only field name",
 			input: "fieldName",
-			expected: &tagkit.Result{
+			expected: &tagkit.TagValue{
 				FieldName:  "fieldName",
 				Args:       make(map[string]*tagkit.ArgMeta),
 				Flags:      make(map[string]bool),
@@ -525,7 +525,7 @@ func TestParseTagValue_AllCases(t *testing.T) {
 		{
 			name:  "field name with args",
 			input: "fieldName(arg:1)",
-			expected: &tagkit.Result{
+			expected: &tagkit.TagValue{
 				FieldName: "fieldName",
 				Args: map[string]*tagkit.ArgMeta{
 					"arg": {Name: "arg", Value: "1", Placeholder: false, CustomName: ""},
@@ -538,7 +538,7 @@ func TestParseTagValue_AllCases(t *testing.T) {
 		{
 			name:  "only flags",
 			input: ",inline,union",
-			expected: &tagkit.Result{
+			expected: &tagkit.TagValue{
 				FieldName: "",
 				Args:      make(map[string]*tagkit.ArgMeta),
 				Flags: map[string]bool{

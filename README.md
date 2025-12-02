@@ -16,7 +16,7 @@ TagKit 是在开发「将 Go 结构体自动转换为 GraphQL Schema / 查询」
 - ✅ 支持嵌套括号和复杂值
 - ✅ 完整的字段名验证
 - ✅ 健壮的错误处理
-- ✅ 统一的 Result 结构便于后续流程处理和编排
+- ✅ 统一的 TagValue 结构便于后续流程处理和编排
 
 ## 安装
 
@@ -119,12 +119,12 @@ result, _ := tagkit.ParseValue("fieldName,handle=func(a,b,c),other=value")
 
 ## API 文档
 
-### Result
+### TagValue
 
 解析结果结构体：
 
 ```go
-type Result struct {
+type TagValue struct {
     FieldName  string              // 字段名（如果为空，表示使用默认字段名）
     Args       map[string]*ArgMeta // 参数列表（key: 参数名）
     Flags      map[string]bool     // 布尔标记位（key: 标记位名称）
@@ -150,14 +150,14 @@ type ArgMeta struct {
 解析 tag 值字符串：
 
 ```go
-func ParseValue(value string) (*Result, error)
+func ParseValue(value string) (*TagValue, error)
 ```
 
 **参数**:
 - `value`: tag 的值字符串（如 `"name(arg:1,arg2:$var),inline,union=unionTypeName"`）
 
 **返回**:
-- `*Result`: 解析结果
+- `*TagValue`: 解析结果
 - `error`: 错误信息（如果解析失败）
 
 ## 语法规则

@@ -6,8 +6,8 @@ import (
 	"strings"
 )
 
-// Result tag value 解析结果
-type Result struct {
+// TagValue tag value 解析结果
+type TagValue struct {
 	FieldName  string              // 字段名（如果为空，表示使用默认字段名）
 	Args       map[string]*ArgMeta // 参数列表（key: 参数名）
 	Flags      map[string]bool     // 布尔标记位（key: 标记位名称）
@@ -25,8 +25,8 @@ type ArgMeta struct {
 // ParseValue  解析 tag value 字符串
 // value: tag 的值（如 "name(arg:1,arg2:$var),inline,union=unionTypeName"）
 // 返回: 解析结果
-func ParseValue(value string) (*Result, error) {
-	result := &Result{
+func ParseValue(value string) (*TagValue, error) {
+	result := &TagValue{
 		FieldName:  "",
 		Args:       make(map[string]*ArgMeta),
 		Flags:      make(map[string]bool),
@@ -77,14 +77,14 @@ func ParseValue(value string) (*Result, error) {
 }
 
 // parseFlagsOnly 解析只有标记位的情况（如 ",inline,union"）
-func parseFlagsOnly(tagValue string, result *Result) (*Result, error) {
+func parseFlagsOnly(tagValue string, result *TagValue) (*TagValue, error) {
 	// 去掉开头的逗号
 	flagsStr := strings.TrimPrefix(tagValue, ",")
 	return parseFlags(flagsStr, result)
 }
 
 // parseWithParentheses 解析包含括号的情况（如 "name(arg:1,arg2:$var),inline,union"）
-func parseWithParentheses(tagValue string, result *Result) (*Result, error) {
+func parseWithParentheses(tagValue string, result *TagValue) (*TagValue, error) {
 	// 查找第一个左括号
 	openIdx := strings.Index(tagValue, "(")
 	if openIdx < 0 {
@@ -131,7 +131,7 @@ func parseWithParentheses(tagValue string, result *Result) (*Result, error) {
 }
 
 // parseFieldNameAndFlags 解析字段名和标记位（无括号，如 "fieldName,inline,union"）
-func parseFieldNameAndFlags(tagValue string, result *Result) (*Result, error) {
+func parseFieldNameAndFlags(tagValue string, result *TagValue) (*TagValue, error) {
 	// 查找第一个逗号
 	commaIdx := strings.Index(tagValue, ",")
 	if commaIdx < 0 {
@@ -157,7 +157,7 @@ func parseFieldNameAndFlags(tagValue string, result *Result) (*Result, error) {
 }
 
 // parseFlags 解析标记位字符串
-func parseFlags(flagsStr string, result *Result) (*Result, error) {
+func parseFlags(flagsStr string, result *TagValue) (*TagValue, error) {
 	if flagsStr == "" {
 		return result, nil
 	}
