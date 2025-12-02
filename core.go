@@ -171,18 +171,16 @@ func parseFlags(flagsStr string, result *TagValue) (*TagValue, error) {
 		}
 
 		// 分割标记位名称和值
-		var flagName, flagValue string
 		if idx := strings.Index(flag, "="); idx >= 0 {
-			flagName = strings.TrimSpace(flag[:idx])
-			flagValue = strings.TrimSpace(flag[idx+1:])
-		} else {
-			flagName = flag
-		}
-
-		if flagName != "" {
+			flagName := strings.TrimSpace(flag[:idx])
+			if flagName == "" {
+				// 没有名称的标记位直接报错（例如 "=value"）
+				return nil, fmt.Errorf("parseFlags: flag name is required in %q", flag)
+			}
 			result.Flags = append(result.Flags, flagName)
-			// 始终设置 FlagValues（即使没有值，值为空字符串）
-			result.FlagValues[flagName] = flagValue
+			result.FlagValues[flagName] = strings.TrimSpace(flag[idx+1:])
+		} else if flag != "" {
+			result.Flags = append(result.Flags, flag)
 		}
 	}
 

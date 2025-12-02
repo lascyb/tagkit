@@ -1,4 +1,4 @@
-package tag_value_parser
+package test
 
 import (
 	"slices"
@@ -167,27 +167,23 @@ func TestParseTagValue_NestedParenthesesInArgs(t *testing.T) {
 
 func TestParseTagValue_FlagWithEmptyName(t *testing.T) {
 	// 测试标记位名称为空
-	result, err := tagkit.ParseValue("fieldName,=value")
-	if err != nil {
-		t.Fatalf("ParseValue should not fail, got: %v", err)
+	_, err := tagkit.ParseValue("fieldName,=value")
+	if err == nil {
+		t.Fatal("Expected error for empty flag name, got nil")
 	}
-
-	// 空名称的标记位应该被跳过
-	if len(result.FlagValues) != 0 {
-		t.Errorf("Expected no flag values (empty name should be skipped), got %d", len(result.FlagValues))
+	if !strings.Contains(err.Error(), "flag name is required") {
+		t.Errorf("Expected error message about empty flag name, got: %v", err)
 	}
 }
 
 func TestParseTagValue_FlagWithOnlyEquals(t *testing.T) {
 	// 测试只有等号的标记位
-	result, err := tagkit.ParseValue("fieldName,=")
-	if err != nil {
-		t.Fatalf("ParseValue should not fail, got: %v", err)
+	_, err := tagkit.ParseValue("fieldName,=")
+	if err == nil {
+		t.Fatal("Expected error for empty flag name with only equals, got nil")
 	}
-
-	// 应该被跳过
-	if len(result.Flags) != 0 && len(result.FlagValues) != 0 {
-		t.Error("Expected empty flag to be skipped")
+	if !strings.Contains(err.Error(), "flag name is required") {
+		t.Errorf("Expected error message about empty flag name, got: %v", err)
 	}
 }
 
@@ -513,15 +509,15 @@ func TestParseTagValue_PlaceholderWithSpecialChars(t *testing.T) {
 
 func TestParseTagValue_EmptyFlagNameAfterEquals(t *testing.T) {
 	// 测试等号后标记位名称为空的情况（实际上应该是 flagName=value，但如果解析错误）
-	result, err := tagkit.ParseValue("fieldName,=value")
+	_, err := tagkit.ParseValue("fieldName,=value")
 	if err != nil {
-		t.Fatalf("ParseValue should not fail, got: %v", err)
+		// 当前实现会在空标记名时返回错误，这是符合预期的
+		if !strings.Contains(err.Error(), "flag name is required") {
+			t.Errorf("Expected error message about empty flag name, got: %v", err)
+		}
+		return
 	}
-
-	// 空名称应该被跳过
-	if len(result.FlagValues) != 0 {
-		t.Error("Expected empty flag name to be skipped")
-	}
+	t.Fatal("Expected error for empty flag name after equals, got nil")
 }
 
 func TestParseTagValue_FlagValueStartsWithEquals(t *testing.T) {

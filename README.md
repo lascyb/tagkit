@@ -125,19 +125,19 @@ result, _ := tagkit.ParseValue("fieldName,handle=func(a,b,c),other=value")
 
 ```go
 type TagValue struct {
-    FieldName  string              // 字段名（如果为空，表示使用默认字段名）
-    Args       map[string]*ArgMeta // 参数列表（key: 参数名）
-    Flags      []string            // 布尔标记位列表
-    FlagValues map[string]string   // 带值的标记位（key: 标记位名称, value: 标记位的值）
+    FieldName  string            // 字段名（如果为空，表示使用默认字段名）
+    Args       map[string]*Arg   // 参数列表（key: 参数名）
+    Flags      []string          // 布尔标记位列表
+    FlagValues map[string]string // 带值的标记位（key: 标记位名称, value: 标记位的值）
 }
 ```
 
-### ArgMeta
+### Arg
 
 参数元数据结构体：
 
 ```go
-type ArgMeta struct {
+type Arg struct {
     Name        string // 参数名（如 "first", "end2", "arg"）
     Value       string // 参数值（字面量，如 "1", "true"）
     Placeholder bool   // 是否为占位符（$ 开头）
@@ -214,6 +214,9 @@ flagName := [A-Za-z0-9_-]+
 flagValue := 任意字符串（支持嵌套括号和逗号）
 ```
 
+
+
+
 ## 错误处理
 
 解析器会在以下情况返回错误：
@@ -221,6 +224,7 @@ flagValue := 任意字符串（支持嵌套括号和逗号）
 - 未匹配的括号：`fieldName(` 或 `fieldName(arg:1))`
 - 括号前字段名为空：`(arg:1)`
 - 字段名包含非法字符：`field name`（包含空格）
+- 标记位存在等号但名称为空：`=value`
 
 ## 测试
 

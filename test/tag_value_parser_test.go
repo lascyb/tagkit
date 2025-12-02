@@ -1,4 +1,4 @@
-package tag_value_parser
+package test
 
 import (
 	"slices"
