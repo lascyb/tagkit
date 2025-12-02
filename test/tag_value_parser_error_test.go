@@ -1,6 +1,7 @@
 package tag_value_parser
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -201,7 +202,7 @@ func TestParseTagValue_MultipleEqualsInFlag(t *testing.T) {
 	if result.FlagValues["key"] != "value=extra" {
 		t.Errorf("Expected flag value 'value=extra', got '%s'", result.FlagValues["key"])
 	}
-	if !result.Flags["key"] {
+	if !slices.Contains(result.Flags, "key") {
 		t.Error("Expected flag 'key' to be true")
 	}
 }
@@ -280,7 +281,7 @@ func TestParseTagValue_CommasWithSpaces(t *testing.T) {
 	}
 
 	// 空格标记位应该被跳过
-	if !result.Flags["inline"] {
+	if !slices.Contains(result.Flags, "inline") {
 		t.Error("Expected flag 'inline' to be set")
 	}
 	if len(result.Flags) != 1 {
@@ -379,10 +380,10 @@ func TestParseTagValue_FlagNameWithSpecialChars(t *testing.T) {
 		t.Fatalf("ParseValue should not fail, got: %v", err)
 	}
 
-	if !result.Flags["flag_1"] {
+	if !slices.Contains(result.Flags, "flag_1") {
 		t.Error("Expected flag 'flag_1' to be set")
 	}
-	if !result.Flags["flag-2"] {
+	if !slices.Contains(result.Flags, "flag-2") {
 		t.Error("Expected flag 'flag-2' to be set")
 	}
 	if result.FlagValues["flag-2"] != "value" {

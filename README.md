@@ -74,8 +74,8 @@ result, _ := tagkit.ParseValue("fieldName(first:10,after:$cursor)")
 ```go
 result, _ := tagkit.ParseValue("fieldName,inline,union")
 // result.FieldName = "fieldName"
-// result.Flags["inline"] = true
-// result.Flags["union"] = true
+// slices.Contains(result.Flags, "inline") = true
+// slices.Contains(result.Flags, "union") = true
 ```
 
 ### 4. 完整格式
@@ -85,8 +85,8 @@ result, _ := tagkit.ParseValue("name(arg:1,arg2:$var),inline,union=unionTypeName
 // result.FieldName = "name"
 // result.Args["arg"].Value = "1"
 // result.Args["arg2"].Value = "$var"
-// result.Flags["inline"] = true
-// result.Flags["union"] = true
+// slices.Contains(result.Flags, "inline") = true
+// slices.Contains(result.Flags, "union") = true
 // result.FlagValues["union"] = "unionTypeName"
 // result.FlagValues["handle"] = "A|B|C"
 ```
@@ -96,8 +96,8 @@ result, _ := tagkit.ParseValue("name(arg:1,arg2:$var),inline,union=unionTypeName
 ```go
 result, _ := tagkit.ParseValue(",inline,union")
 // result.FieldName = ""
-// result.Flags["inline"] = true
-// result.Flags["union"] = true
+// slices.Contains(result.Flags, "inline") = true
+// slices.Contains(result.Flags, "union") = true
 ```
 
 ### 6. 复杂参数值
@@ -112,7 +112,7 @@ result, _ := tagkit.ParseValue("fieldName(filter:{name:\"test\",age:18})")
 
 ```go
 result, _ := tagkit.ParseValue("fieldName,handle=func(a,b,c),other=value")
-// result.Flags["handle"] = true
+// slices.Contains(result.Flags, "handle") = true
 // result.FlagValues["handle"] = "func(a,b,c)"
 // result.FlagValues["other"] = "value"
 ```
@@ -127,7 +127,7 @@ result, _ := tagkit.ParseValue("fieldName,handle=func(a,b,c),other=value")
 type TagValue struct {
     FieldName  string              // 字段名（如果为空，表示使用默认字段名）
     Args       map[string]*ArgMeta // 参数列表（key: 参数名）
-    Flags      map[string]bool     // 布尔标记位（key: 标记位名称）
+    Flags      []string            // 布尔标记位列表
     FlagValues map[string]string   // 带值的标记位（key: 标记位名称, value: 标记位的值）
 }
 ```
@@ -160,7 +160,25 @@ func ParseValue(value string) (*TagValue, error)
 - `*TagValue`: 解析结果
 - `error`: 错误信息（如果解析失败）
 
+**使用示例**:
+```go
+import "slices"
+
+result, _ := tagkit.ParseValue("fieldName,inline,union")
+if slices.Contains(result.Flags, "inline") {
+    // 处理 inline 标记位
+}
+```
+
 ## 语法规则
+
+### 语法格式
+
+TagKit 支持的完整语法格式如下：
+
+```
+[字段名[(参数名:参数值,参数名:参数值,...)]] [,标记位1[=标记位值]][,标记位2[=标记位值]...]
+```
 
 ### 字段名
 

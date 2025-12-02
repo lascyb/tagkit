@@ -1,6 +1,7 @@
 package tag_value_parser
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/lascyb/tagkit"
@@ -64,10 +65,10 @@ func TestParseTagValue_OnlyFlags(t *testing.T) {
 	if result.FieldName != "" {
 		t.Errorf("Expected empty FieldName, got '%s'", result.FieldName)
 	}
-	if !result.Flags["inline"] {
+	if !slices.Contains(result.Flags, "inline") {
 		t.Error("Expected flag 'inline' not set")
 	}
-	if !result.Flags["union"] {
+	if !slices.Contains(result.Flags, "union") {
 		t.Error("Expected flag 'union' not set")
 	}
 }
@@ -81,7 +82,7 @@ func TestParseTagValue_FieldNameAndFlags(t *testing.T) {
 	if result.FieldName != "fieldName" {
 		t.Errorf("Expected FieldName 'fieldName', got '%s'", result.FieldName)
 	}
-	if !result.Flags["inline"] {
+	if !slices.Contains(result.Flags, "inline") {
 		t.Error("Expected flag 'inline' not set")
 	}
 }
@@ -98,10 +99,10 @@ func TestParseTagValue_FullFormat(t *testing.T) {
 	if len(result.Args) != 2 {
 		t.Errorf("Expected 2 args, got %d", len(result.Args))
 	}
-	if !result.Flags["inline"] {
+	if !slices.Contains(result.Flags, "inline") {
 		t.Error("Expected flag 'inline' not set")
 	}
-	if !result.Flags["union"] {
+	if !slices.Contains(result.Flags, "union") {
 		t.Error("Expected flag 'union' not set")
 	}
 }
@@ -120,10 +121,10 @@ func TestParseTagValue_FlagsWithValues(t *testing.T) {
 	}
 
 	// 标记位只要存在就应该先标记为 true
-	if !result.Flags["union"] {
+	if !slices.Contains(result.Flags, "union") {
 		t.Error("Expected flag 'union' to be true (flag exists)")
 	}
-	if !result.Flags["handle"] {
+	if !slices.Contains(result.Flags, "handle") {
 		t.Error("Expected flag 'handle' to be true (flag exists)")
 	}
 
@@ -153,13 +154,13 @@ func TestParseTagValue_MultipleFlags(t *testing.T) {
 	if result.FieldName != "" {
 		t.Errorf("Expected empty FieldName, got '%s'", result.FieldName)
 	}
-	if !result.Flags["inline"] {
+	if !slices.Contains(result.Flags, "inline") {
 		t.Error("Expected flag 'inline' not set")
 	}
-	if !result.Flags["union"] {
+	if !slices.Contains(result.Flags, "union") {
 		t.Error("Expected flag 'union' not set")
 	}
-	if !result.Flags["final"] {
+	if !slices.Contains(result.Flags, "final") {
 		t.Error("Expected flag 'final' not set")
 	}
 }
@@ -295,16 +296,16 @@ func TestParseTagValue_FlagWithEmptyValue(t *testing.T) {
 	}
 
 	// 标记位只要存在就应该先标记为 true
-	if !result.Flags["union"] {
+	if !slices.Contains(result.Flags, "union") {
 		t.Error("Expected flag 'union' to be true (flag exists, even with empty value)")
 	}
-	if !result.Flags["handle"] {
+	if !slices.Contains(result.Flags, "handle") {
 		t.Error("Expected flag 'handle' to be true (flag exists)")
 	}
 
-	// union 标记位的值为空，不应该在 FlagValues 中
-	if _, exists := result.FlagValues["union"]; exists {
-		t.Error("Expected 'union' not in FlagValues (empty value should not be stored)")
+	// union 标记位的值为空，应该在 FlagValues 中存储空字符串
+	if result.FlagValues["union"] != "" {
+		t.Errorf("Expected FlagValues['union'] to be empty string, got '%s'", result.FlagValues["union"])
 	}
 
 	// handle 标记位有值，应该在 FlagValues 中
@@ -321,13 +322,13 @@ func TestParseTagValue_FlagExistsButNoValue(t *testing.T) {
 	}
 
 	// 标记位存在，应该被设置为 true
-	if !result.Flags["union"] {
+	if !slices.Contains(result.Flags, "union") {
 		t.Error("Expected flag 'union' to be true (flag exists)")
 	}
 
-	// 值不存在，不应该在 FlagValues 中
-	if _, exists := result.FlagValues["union"]; exists {
-		t.Error("Expected 'union' not in FlagValues (no value provided)")
+	// 值不存在，应该在 FlagValues 中存储空字符串
+	if result.FlagValues["union"] != "" {
+		t.Errorf("Expected FlagValues['union'] to be empty string, got '%s'", result.FlagValues["union"])
 	}
 }
 
@@ -338,13 +339,13 @@ func TestParseTagValue_MixedFlags(t *testing.T) {
 	}
 
 	// 所有标记位都应该被设置为 true
-	if !result.Flags["inline"] {
+	if !slices.Contains(result.Flags, "inline") {
 		t.Error("Expected flag 'inline' to be true")
 	}
-	if !result.Flags["union"] {
+	if !slices.Contains(result.Flags, "union") {
 		t.Error("Expected flag 'union' to be true (flag exists)")
 	}
-	if !result.Flags["final"] {
+	if !slices.Contains(result.Flags, "final") {
 		t.Error("Expected flag 'final' to be true")
 	}
 
@@ -353,12 +354,12 @@ func TestParseTagValue_MixedFlags(t *testing.T) {
 		t.Errorf("Expected FlagValues['union'] 'unionTypeName', got '%s'", result.FlagValues["union"])
 	}
 
-	// inline 和 final 没有值，不应该在 FlagValues 中
-	if _, exists := result.FlagValues["inline"]; exists {
-		t.Error("Expected 'inline' not in FlagValues (no value)")
+	// inline 和 final 没有值，应该在 FlagValues 中存储空字符串
+	if result.FlagValues["inline"] != "" {
+		t.Errorf("Expected FlagValues['inline'] to be empty string, got '%s'", result.FlagValues["inline"])
 	}
-	if _, exists := result.FlagValues["final"]; exists {
-		t.Error("Expected 'final' not in FlagValues (no value)")
+	if result.FlagValues["final"] != "" {
+		t.Errorf("Expected FlagValues['final'] to be empty string, got '%s'", result.FlagValues["final"])
 	}
 }
 
@@ -376,13 +377,13 @@ func TestParseTagValue_ComplexExample(t *testing.T) {
 	}
 
 	// 所有标记位都应该被设置为 true
-	if !result.Flags["inline"] {
+	if !slices.Contains(result.Flags, "inline") {
 		t.Error("Expected flag 'inline' to be true")
 	}
-	if !result.Flags["union"] {
+	if !slices.Contains(result.Flags, "union") {
 		t.Error("Expected flag 'union' to be true (flag exists)")
 	}
-	if !result.Flags["handle"] {
+	if !slices.Contains(result.Flags, "handle") {
 		t.Error("Expected flag 'handle' to be true (flag exists)")
 	}
 
@@ -394,9 +395,9 @@ func TestParseTagValue_ComplexExample(t *testing.T) {
 		t.Errorf("Expected FlagValues['handle'] 'A|B|C', got '%s'", result.FlagValues["handle"])
 	}
 
-	// inline 没有值，不应该在 FlagValues 中
-	if _, exists := result.FlagValues["inline"]; exists {
-		t.Error("Expected 'inline' not in FlagValues (no value)")
+	// inline 没有值，应该在 FlagValues 中存储空字符串
+	if result.FlagValues["inline"] != "" {
+		t.Errorf("Expected FlagValues['inline'] to be empty string, got '%s'", result.FlagValues["inline"])
 	}
 }
 
@@ -409,10 +410,10 @@ func TestParseTagValue_WithSpaces(t *testing.T) {
 	if result.FieldName != "fieldName" {
 		t.Errorf("Expected FieldName 'fieldName', got '%s'", result.FieldName)
 	}
-	if !result.Flags["inline"] {
+	if !slices.Contains(result.Flags, "inline") {
 		t.Error("Expected flag 'inline' not set")
 	}
-	if !result.Flags["union"] {
+	if !slices.Contains(result.Flags, "union") {
 		t.Error("Expected flag 'union' not set")
 	}
 }
@@ -445,10 +446,10 @@ func TestParseTagValue_FlagValueWithParentheses(t *testing.T) {
 	}
 
 	// 所有标记位都应该被设置为 true
-	if !result.Flags["handle"] {
+	if !slices.Contains(result.Flags, "handle") {
 		t.Error("Expected flag 'handle' to be true (flag exists)")
 	}
-	if !result.Flags["other"] {
+	if !slices.Contains(result.Flags, "other") {
 		t.Error("Expected flag 'other' to be true (flag exists)")
 	}
 
@@ -475,10 +476,10 @@ func TestParseTagValue_FlagValueWithComplexParentheses(t *testing.T) {
 	}
 
 	// 所有标记位都应该被设置为 true
-	if !result.Flags["handle"] {
+	if !slices.Contains(result.Flags, "handle") {
 		t.Error("Expected flag 'handle' to be true (flag exists)")
 	}
-	if !result.Flags["union"] {
+	if !slices.Contains(result.Flags, "union") {
 		t.Error("Expected flag 'union' to be true (flag exists)")
 	}
 
@@ -488,6 +489,36 @@ func TestParseTagValue_FlagValueWithComplexParentheses(t *testing.T) {
 	}
 	if result.FlagValues["union"] != "unionTypeName" {
 		t.Errorf("Expected FlagValues['union'] 'unionTypeName', got '%s'", result.FlagValues["union"])
+	}
+}
+
+func TestParseTagValue_CurlyBracesWithFlags(t *testing.T) {
+	// 测试用户想要的语法：field(arg:{name:"nas",name2:"nas",}),flag1
+	result, err := tagkit.ParseValue(`field(arg:{name:"nas",name2:"nas",}),flag1`)
+	if err != nil {
+		t.Fatalf("ParseValue failed: %v", err)
+	}
+
+	if result.FieldName != "field" {
+		t.Errorf("Expected FieldName 'field', got '%s'", result.FieldName)
+	}
+
+	if len(result.Args) != 1 {
+		t.Errorf("Expected 1 arg, got %d", len(result.Args))
+	}
+
+	arg, ok := result.Args["arg"]
+	if !ok {
+		t.Error("Expected arg 'arg' not found")
+	} else {
+		expectedValue := `{name:"nas",name2:"nas",}`
+		if arg.Value != expectedValue {
+			t.Errorf("Expected arg 'arg' value '%s', got '%s'", expectedValue, arg.Value)
+		}
+	}
+
+	if !slices.Contains(result.Flags, "flag1") {
+		t.Error("Expected flag 'flag1' not set")
 	}
 }
 
@@ -516,8 +547,8 @@ func TestParseTagValue_AllCases(t *testing.T) {
 			input: "fieldName",
 			expected: &tagkit.TagValue{
 				FieldName:  "fieldName",
-				Args:       make(map[string]*tagkit.ArgMeta),
-				Flags:      make(map[string]bool),
+				Args:       make(map[string]*tagkit.Arg),
+				Flags:      []string{},
 				FlagValues: make(map[string]string),
 			},
 			hasError: false,
@@ -527,10 +558,10 @@ func TestParseTagValue_AllCases(t *testing.T) {
 			input: "fieldName(arg:1)",
 			expected: &tagkit.TagValue{
 				FieldName: "fieldName",
-				Args: map[string]*tagkit.ArgMeta{
+				Args: map[string]*tagkit.Arg{
 					"arg": {Name: "arg", Value: "1", Placeholder: false, CustomName: ""},
 				},
-				Flags:      make(map[string]bool),
+				Flags:      []string{},
 				FlagValues: make(map[string]string),
 			},
 			hasError: false,
@@ -539,12 +570,9 @@ func TestParseTagValue_AllCases(t *testing.T) {
 			name:  "only flags",
 			input: ",inline,union",
 			expected: &tagkit.TagValue{
-				FieldName: "",
-				Args:      make(map[string]*tagkit.ArgMeta),
-				Flags: map[string]bool{
-					"inline": true,
-					"union":  true,
-				},
+				FieldName:  "",
+				Args:       make(map[string]*tagkit.Arg),
+				Flags:      []string{"inline", "union"},
 				FlagValues: make(map[string]string),
 			},
 			hasError: false,
@@ -569,8 +597,19 @@ func TestParseTagValue_AllCases(t *testing.T) {
 			if len(result.Args) != len(tc.expected.Args) {
 				t.Errorf("Args count: expected %d, got %d", len(tc.expected.Args), len(result.Args))
 			}
-			if !mapsEqual(result.Flags, tc.expected.Flags) {
-				t.Errorf("Flags: expected %v, got %v", tc.expected.Flags, result.Flags)
+			// 比较 Flags 切片（顺序无关）
+			if len(result.Flags) != len(tc.expected.Flags) {
+				t.Errorf("Flags count: expected %d, got %d", len(tc.expected.Flags), len(result.Flags))
+			} else {
+				expectedFlagsMap := make(map[string]bool)
+				for _, flag := range tc.expected.Flags {
+					expectedFlagsMap[flag] = true
+				}
+				for _, flag := range result.Flags {
+					if !expectedFlagsMap[flag] {
+						t.Errorf("Flags: unexpected flag '%s'", flag)
+					}
+				}
 			}
 		})
 	}

@@ -8,14 +8,14 @@ import (
 
 // TagValue tag value 解析结果
 type TagValue struct {
-	FieldName  string              // 字段名（如果为空，表示使用默认字段名）
-	Args       map[string]*ArgMeta // 参数列表（key: 参数名）
-	Flags      map[string]bool     // 布尔标记位（key: 标记位名称）
-	FlagValues map[string]string   // 带值的标记位（key: 标记位名称, value: 标记位的值）
+	FieldName  string            // 字段名（如果为空，表示使用默认字段名）
+	Args       map[string]*Arg   // 参数列表（key: 参数名）
+	Flags      []string          // 布尔标记位列表
+	FlagValues map[string]string // 带值的标记位（key: 标记位名称, value: 标记位的值）
 }
 
-// ArgMeta 表示 GraphQL 参数元数据
-type ArgMeta struct {
+// Arg 表示 GraphQL 参数元数据
+type Arg struct {
 	Name        string // 参数名（如 "first", "end2", "arg"）
 	Value       string // 参数值（字面量，如 "1", "true"）
 	Placeholder bool   // 是否为占位符（$ 开头）
@@ -28,8 +28,8 @@ type ArgMeta struct {
 func ParseValue(value string) (*TagValue, error) {
 	result := &TagValue{
 		FieldName:  "",
-		Args:       make(map[string]*ArgMeta),
-		Flags:      make(map[string]bool),
+		Args:       make(map[string]*Arg),
+		Flags:      []string{},
 		FlagValues: make(map[string]string),
 	}
 
@@ -60,20 +60,20 @@ func ParseValue(value string) (*TagValue, error) {
 		// 需要判断：如果第一个部分看起来像标记位（没有等号且是常见标记位），可能是只有标记位
 		// 但为了简化，我们假设第一个部分是字段名
 		return parseFieldNameAndFlags(value, result)
-	} else {
-		// 没有逗号，检查整个字符串是否包含括号
-		if strings.Contains(value, "(") {
-			// 有括号但没有逗号，说明是字段名+参数，没有标记位
-			return parseWithParentheses(value, result)
-		}
-		// 没有括号也没有逗号，可能是字段名，也可能是单个标记位
-		// 为了兼容性，假设是字段名（如果用户想要只有标记位，应该以逗号开头）
-		if err := validateFieldName(value); err != nil {
-			return nil, err
-		}
-		result.FieldName = value
-		return result, nil
 	}
+
+	// 没有逗号，检查整个字符串是否包含括号
+	if strings.Contains(value, "(") {
+		// 有括号但没有逗号，说明是字段名+参数，没有标记位
+		return parseWithParentheses(value, result)
+	}
+	// 没有括号也没有逗号，可能是字段名，也可能是单个标记位
+	// 为了兼容性，假设是字段名（如果用户想要只有标记位，应该以逗号开头）
+	if err := validateFieldName(value); err != nil {
+		return nil, err
+	}
+	result.FieldName = value
+	return result, nil
 }
 
 // parseFlagsOnly 解析只有标记位的情况（如 ",inline,union"）
@@ -170,23 +170,19 @@ func parseFlags(flagsStr string, result *TagValue) (*TagValue, error) {
 			continue
 		}
 
-		// 判断是布尔标记位还是带值的标记位
-		equalIdx := strings.Index(flag, "=")
-		if equalIdx >= 0 {
-			// 带值的标记位：flagName=value
-			flagName := strings.TrimSpace(flag[:equalIdx])
-			flagValue := strings.TrimSpace(flag[equalIdx+1:])
-			if flagName != "" {
-				// 标记位只要存在就先标记为 true
-				result.Flags[flagName] = true
-				// 如果值存在，再设置 FlagValues
-				if flagValue != "" {
-					result.FlagValues[flagName] = flagValue
-				}
-			}
+		// 分割标记位名称和值
+		var flagName, flagValue string
+		if idx := strings.Index(flag, "="); idx >= 0 {
+			flagName = strings.TrimSpace(flag[:idx])
+			flagValue = strings.TrimSpace(flag[idx+1:])
 		} else {
-			// 布尔标记位：flagName
-			result.Flags[flag] = true
+			flagName = flag
+		}
+
+		if flagName != "" {
+			result.Flags = append(result.Flags, flagName)
+			// 始终设置 FlagValues（即使没有值，值为空字符串）
+			result.FlagValues[flagName] = flagValue
 		}
 	}
 
@@ -234,9 +230,9 @@ func splitFlags(flagsStr string) []string {
 
 // parseArgs 解析参数字符串
 // argsStr: 参数字符串（如 "first:10, end2:2, arg:$, arg1:$arg1"）
-// 返回: ArgMeta map
-func parseArgs(argsStr string) (map[string]*ArgMeta, error) {
-	args := make(map[string]*ArgMeta)
+// 返回: Arg map
+func parseArgs(argsStr string) (map[string]*Arg, error) {
+	args := make(map[string]*Arg)
 	if argsStr == "" {
 		return args, nil
 	}
@@ -263,7 +259,7 @@ func parseArgs(argsStr string) (map[string]*ArgMeta, error) {
 			continue
 		}
 
-		argMeta := &ArgMeta{
+		argMeta := &Arg{
 			Name:        key,
 			Value:       value,
 			Placeholder: strings.HasPrefix(value, "$"),
@@ -286,27 +282,34 @@ func parseArgs(argsStr string) (map[string]*ArgMeta, error) {
 	return args, nil
 }
 
-// splitArgs 分割参数字符串，考虑括号嵌套
+// splitArgs 分割参数字符串，考虑括号嵌套（包括圆括号和花括号）
 func splitArgs(argsStr string) []string {
 	var parts []string
 	var current strings.Builder
-	depth := 0
+	parenDepth := 0 // 圆括号深度
+	braceDepth := 0 // 花括号深度
 
 	for i, r := range argsStr {
 		switch r {
 		case '(':
-			depth++
+			parenDepth++
 			current.WriteRune(r)
 		case ')':
-			depth--
+			parenDepth--
+			current.WriteRune(r)
+		case '{':
+			braceDepth++
+			current.WriteRune(r)
+		case '}':
+			braceDepth--
 			current.WriteRune(r)
 		case ',':
-			if depth == 0 {
+			if parenDepth == 0 && braceDepth == 0 {
 				// 顶层逗号，分割
 				parts = append(parts, current.String())
 				current.Reset()
 			} else {
-				// 括号内的逗号，保留
+				// 括号或花括号内的逗号，保留
 				current.WriteRune(r)
 			}
 		default:
@@ -333,9 +336,10 @@ func findMatchingCloseParen(s string, openIdx int) int {
 
 	depth := 1
 	for i := openIdx + 1; i < len(s); i++ {
-		if s[i] == '(' {
+		switch s[i] {
+		case '(':
 			depth++
-		} else if s[i] == ')' {
+		case ')':
 			depth--
 			if depth == 0 {
 				return i
