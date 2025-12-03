@@ -1,234 +1,193 @@
-## TagKit
+# TagKit
 
 一个 Go 语言结构体标签解析工具包，提供强大的结构体字段标签解析与结构化处理能力。
 
 ## 背景
 
-TagKit 是在开发「将 Go 结构体自动转换为 GraphQL Schema / 查询」工具过程中抽离出来的通用 tag 解析库，
-最初用于处理结构体字段上的 GraphQL 风格标签，但语法设计为通用格式，可复用于其他需要解析“字段+参数+标记位”风格标签的场景。
+TagKit 是在开发「将 Go 结构体自动转换为 GraphQL Schema / 查询」工具过程中抽离出来的通用 tag 解析库，最初用于处理结构体字段上的 GraphQL 风格标签，但语法设计为通用格式，可复用于其他需要解析"字段+参数+标记位"风格标签的场景。
 
-## 功能特性
+## 快速开始
 
-- ✅ 解析字段名
-- ✅ 解析参数列表（支持字面量和占位符）
-- ✅ 解析布尔标记位
-- ✅ 解析带值的标记位并结构化存储
-- ✅ 支持嵌套括号和复杂值
-- ✅ 完整的字段名验证
-- ✅ 健壮的错误处理
-- ✅ 统一的 TagValue 结构便于后续流程处理和编排
-
-## 安装
+### 安装
 
 ```bash
 go get github.com/lascyb/tagkit
 ```
 
-## 快速开始
+### 基本使用
 
 ```go
 package main
 
 import (
     "fmt"
+    "reflect"
     "github.com/lascyb/tagkit"
 )
 
+type User struct {
+    Nodes []Node `graphql:"nodes(first:10,after:$cursor),inline,union=UserConnection"`
+    // graphql 是 tag 的名称，可以自定义
+}
+
+type Node struct {
+    ID int
+}
+
 func main() {
-    // 解析完整的 tag 值
-    result, err := tagkit.ParseValue("nodes(first:10,after:$cursor),inline,union=UserConnection")
+    // 从结构体标签获取 tag 值
+    t := reflect.TypeOf(User{})
+    field, _ := t.FieldByName("Nodes")
+    tagValue := field.Tag.Get("graphql") // nodes(first:10,after:$cursor),inline,union=UserConnection
+    
+    // 解析 tag 值
+    result, err := tagkit.ParseValue(tagValue)
     if err != nil {
         panic(err)
     }
 
     fmt.Printf("字段名: %s\n", result.FieldName)
-    fmt.Printf("参数数量: %d\n", len(result.Args))
+    fmt.Printf("参数: %v\n", result.Args)
     fmt.Printf("标记位: %v\n", result.Flags)
 }
 ```
 
 ## 使用示例
 
-### 1. 只有字段名
+### 基础用法
 
 ```go
+// 1. 只有字段名
 result, _ := tagkit.ParseValue("fieldName")
 // result.FieldName = "fieldName"
-// result.Args = {}
-// result.Flags = {}
-```
 
-### 2. 字段名 + 参数
-
-```go
+// 2. 字段名 + 参数
 result, _ := tagkit.ParseValue("fieldName(first:10,after:$cursor)")
-// result.FieldName = "fieldName"
 // result.Args["first"].Value = "10"
-// result.Args["after"].Value = "$cursor"
 // result.Args["after"].Placeholder = true
-// result.Args["after"].CustomName = "cursor"
-```
 
-### 3. 字段名 + 标记位
-
-```go
+// 3. 字段名 + 标记位
 result, _ := tagkit.ParseValue("fieldName,inline,union")
-// result.FieldName = "fieldName"
 // slices.Contains(result.Flags, "inline") = true
-// slices.Contains(result.Flags, "union") = true
-```
 
-### 4. 完整格式
-
-```go
-result, _ := tagkit.ParseValue("name(arg:1,arg2:$var),inline,union=unionTypeName,handle=A|B|C")
+// 4. 完整格式
+result, _ := tagkit.ParseValue("name(arg:1),inline,union=unionTypeName")
 // result.FieldName = "name"
-// result.Args["arg"].Value = "1"
-// result.Args["arg2"].Value = "$var"
-// slices.Contains(result.Flags, "inline") = true
-// slices.Contains(result.Flags, "union") = true
 // result.FlagValues["union"] = "unionTypeName"
-// result.FlagValues["handle"] = "A|B|C"
-```
 
-### 5. 只有标记位
-
-```go
+// 5. 只有标记位
 result, _ := tagkit.ParseValue(",inline,union")
 // result.FieldName = ""
-// slices.Contains(result.Flags, "inline") = true
-// slices.Contains(result.Flags, "union") = true
 ```
 
-### 6. 复杂参数值
+### 高级用法
+
+更多高级用法和详细示例，请参考 [文档目录](./docs/)：
+
+- [自定义解析器](./docs/custom-parser.md) - 创建和配置自定义解析器
+- [链式调用](./docs/method-chaining.md) - 使用链式调用简化代码
+- [全局配置](./docs/global-config.md) - 配置全局默认解析器
+
+**快速示例**:
 
 ```go
-result, _ := tagkit.ParseValue("fieldName(filter:{name:\"test\",age:18})")
-// result.FieldName = "fieldName"
-// result.Args["filter"].Value = "{name:\"test\",age:18}"
+// 自定义解析器
+parser := tagkit.NewParser()
+parser.SetFieldNameValidatorByRegex(regexp.MustCompile(`^[a-z_]+$`))
+result, _ := parser.ParseValue("field_name")
+
+// 链式调用
+result, _ := tagkit.NewParser().
+    SetFieldNameValidatorByRegex(regexp.MustCompile(`^[A-Z][a-zA-Z0-9]*$`)).
+    ParseValue("FieldName")
 ```
 
-### 7. 标记位值包含括号
+## 核心类型
 
 ```go
-result, _ := tagkit.ParseValue("fieldName,handle=func(a,b,c),other=value")
-// slices.Contains(result.Flags, "handle") = true
-// result.FlagValues["handle"] = "func(a,b,c)"
-// result.FlagValues["other"] = "value"
-```
-
-## API 文档
-
-### TagValue
-
-解析结果结构体：
-
-```go
+// 解析结果
 type TagValue struct {
-    FieldName  string            // 字段名（如果为空，表示使用默认字段名）
-    Args       map[string]*Arg   // 参数列表（key: 参数名）
+    FieldName  string            // 字段名
+    Args       map[string]*Arg   // 参数列表
     Flags      []string          // 布尔标记位列表
-    FlagValues map[string]string // 带值的标记位（key: 标记位名称, value: 标记位的值）
+    FlagValues map[string]string // 带值的标记位
 }
-```
 
-### Arg
-
-参数元数据结构体：
-
-```go
+// 参数元数据
 type Arg struct {
-    Name        string // 参数名（如 "first", "end2", "arg"）
-    Value       string // 参数值（字面量，如 "1", "true"）
+    Name        string // 参数名
+    Value       string // 参数值
     Placeholder bool   // 是否为占位符（$ 开头）
-    CustomName  string // 自定义变量名（如果指定了 $arg1，则为 "arg1"；如果为 $，则为空）
-}
-```
-
-### ParseValue
-
-解析 tag 值字符串：
-
-```go
-func ParseValue(value string) (*TagValue, error)
-```
-
-**参数**:
-- `value`: tag 的值字符串（如 `"name(arg:1,arg2:$var),inline,union=unionTypeName"`）
-
-**返回**:
-- `*TagValue`: 解析结果
-- `error`: 错误信息（如果解析失败）
-
-**使用示例**:
-```go
-import "slices"
-
-result, _ := tagkit.ParseValue("fieldName,inline,union")
-if slices.Contains(result.Flags, "inline") {
-    // 处理 inline 标记位
+    CustomName  string // 自定义变量名
 }
 ```
 
 ## 语法规则
 
-### 语法格式
-
-TagKit 支持的完整语法格式如下：
+TagKit 支持的语法格式：
 
 ```
-[字段名[(参数名:参数值,参数名:参数值,...)]] [,标记位1[=标记位值]][,标记位2[=标记位值]...]
+[字段名[(参数名:参数值,...)]] [,标记位1[=标记位值]][,标记位2[=标记位值]...]
 ```
 
-### 字段名
+**字段名**: 默认允许字母、数字、下划线、中划线（可通过自定义验证器修改）
 
-- 允许的字符：字母（A-Z, a-z）、数字（0-9）、下划线（_）、中划线（-）
-- 不允许包含空格、点号、特殊符号等
+**参数格式**: `参数名:参数值`，多个参数用逗号分隔
 
-### 参数格式
-
-- 格式：`参数名:参数值`
-- 多个参数用逗号分隔：`arg1:value1,arg2:value2`
-- 支持占位符：
-  - `$var` - 自定义变量名
-  - `$` - 默认占位符（CustomName 为空）
-
-### 标记位格式
-
+**标记位格式**:
 - 布尔标记位：`flagName`
 - 带值标记位：`flagName=value`
-- 多个标记位用逗号分隔：`inline,union=unionTypeName`
 
-### 完整语法
+**占位符**: `$var` 或 `$`
 
+详细语法说明请参考 [完整文档](./docs/README.md)。
+
+## API 参考
+
+### 全局函数
+
+```go
+// 解析 tag 值（使用默认解析器）
+func ParseValue(value string) (*TagValue, error)
+
+// 配置默认解析器
+func SetFieldNameValidator(validator FieldNameValidator) *Parser
+func SetFieldNameValidatorByRegex(regex *regexp.Regexp) *Parser
 ```
-tagValue := fieldName? (args)? (flags)?
-fieldName := [A-Za-z0-9_-]+
-args := '(' arg (',' arg)* ')'
-arg := name ':' value
-name := [A-Za-z0-9_-]+
-value := 任意字符串（支持嵌套括号）
-flags := ',' flag (',' flag)*
-flag := flagName ('=' flagValue)?
-flagName := [A-Za-z0-9_-]+
-flagValue := 任意字符串（支持嵌套括号和逗号）
+
+### Parser 方法
+
+```go
+// 创建解析器
+parser := tagkit.NewParser()
+
+// 设置验证器
+parser.SetFieldNameValidator(validator) *Parser
+parser.SetFieldNameValidatorByRegex(regex) *Parser
+
+// 解析
+parser.ParseValue(value) (*TagValue, error)
 ```
 
-
-
+完整 API 文档请参考 [文档目录](./docs/README.md)。
 
 ## 错误处理
 
 解析器会在以下情况返回错误：
 
-- 未匹配的括号：`fieldName(` 或 `fieldName(arg:1))`
-- 括号前字段名为空：`(arg:1)`
-- 字段名包含非法字符：`field name`（包含空格）
-- 标记位存在等号但名称为空：`=value`
+- 未匹配的括号
+- 括号前字段名为空
+- 字段名包含非法字符
+- 标记位存在等号但名称为空
+
+## 更多文档
+
+- [文档目录](./docs/README.md) - 详细的使用文档和示例
+- [自定义解析器](./docs/custom-parser.md) - 创建自定义解析器
+- [链式调用](./docs/method-chaining.md) - 链式调用用法
+- [全局配置](./docs/global-config.md) - 全局配置说明
 
 ## 测试
-
-运行测试：
 
 ```bash
 go test ./test/...
@@ -236,9 +195,8 @@ go test ./test/...
 
 ## 许可证
 
-MIT License
+[MIT License](LICENSE) © [lascyb](https://github.com/lascyb)
 
 ## 贡献
 
 欢迎提交 Issue 和 Pull Request！
-
