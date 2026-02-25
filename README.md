@@ -1,202 +1,111 @@
-# TagKit
+# tagkit
 
-一个 Go 语言结构体标签解析工具包，提供强大的结构体字段标签解析与结构化处理能力。
+Go 库：解析 struct tag 中的「字段调用 + 标记位」语法，得到结构化结果，便于代码生成、校验或配置消费。
 
-## 背景
+**版本**：v1.0.0（全新重构）
 
-TagKit 是在开发「将 Go 结构体自动转换为 GraphQL Schema / 查询」工具过程中抽离出来的通用 tag 解析库，最初用于处理结构体字段上的 GraphQL 风格标签，但语法设计为通用格式，可复用于其他需要解析"字段+参数+标记位"风格标签的场景。
-
-## 快速开始
-
-### 安装
+## 安装
 
 ```bash
 go get github.com/lascyb/tagkit
 ```
 
-### 基本使用
+## 语法概览
+
+一条 tag value 由**至多一个字段调用**和**若干标记位**组成，逗号分隔：
+
+- **字段**：`name(arg1:val1, arg2:val2)` 或匿名字段 `(arg1:val1,...)`，字段名可为空。
+- **标记位**：布尔标记 `name`，或键值 `name=value`。
+- **唯一性**：整条 tag 中只允许一个字段调用；存在标记时逗号不可省略，仅标记时需前导逗号，如 `,inline`。
+
+### 参数值形式
+
+| 形式            | 示例                                                   |
+|---------------|------------------------------------------------------|
+| 字面量           | `age:18`, `scale:1.5`, `enabled:true`, `label:hello` |
+| 变量（带类型与可选默认值） | `age:$age:Int=18`, `ids:$ids:[Int!]!=[1,2,3]`        |
+| 字符串数组         | `['a','b','c']` 或 `[a,b,c]`（有单引号以单引号为准，无则按逗号分割）      |
+| 嵌套数组          | `[[1,2],[3,4]]`, `[[[1,2]],[[3,4]]]`                 |
+
+### 示例
+
+```
+name(age:$age:Int=18, first:10),inline=3,union=false
+tags(items:$items:[String]=[a,b,c], count:$count:Int=5),flatten
+(age:18,sex:man),inline
+,flag=false
+```
+
+## 用法
 
 ```go
 package main
 
 import (
-    "fmt"
-    "reflect"
-    "github.com/lascyb/tagkit"
+	"fmt"
+	"github.com/lascyb/tagkit"
 )
 
-type User struct {
-    Nodes []Node `graphql:"nodes(first:10,after:$cursor),inline,union=UserConnection"`
-    // graphql 是 tag 的名称，可以自定义
-}
-
-type Node struct {
-    ID int
-}
-
 func main() {
-    // 从结构体标签获取 tag 值
-    t := reflect.TypeOf(User{})
-    field, _ := t.FieldByName("Nodes")
-    tagValue := field.Tag.Get("graphql") // nodes(first:10,after:$cursor),inline,union=UserConnection
-    
-    // 解析 tag 值
-    result, err := tagkit.ParseValue(tagValue)
-    if err != nil {
-        panic(err)
-    }
+	input := `query(ids:$ids:[Int]=[1,2,3], names:$names:[String]=['foo','bar']),cache=true`
+	result, err := tagkit.ParseTagValue(input)
+	if err != nil {
+		panic(err)
+	}
 
-    fmt.Printf("字段名: %s\n", result.FieldName)
-    fmt.Printf("参数: %v\n", result.Args)
-    fmt.Printf("标记位: %v\n", result.Flags)
+	// 唯一字段：名称与参数直接展开在 TagValue 上
+	fmt.Println("字段名:", result.Name)
+	for k, v := range result.Args {
+		if v.Type == "variable" {
+			fmt.Printf("  参数 %s = $%s (%s)", k, v.VarName, v.VarType)
+			if v.HasDefault {
+				fmt.Printf(" 默认 %v", v.DefaultVal)
+			}
+			fmt.Println()
+		} else {
+			fmt.Printf("  参数 %s = %v\n", k, v.Value)
+		}
+	}
+	for _, f := range result.Flags {
+		if f.IsBoolean {
+			fmt.Printf("标记 %s = true\n", f.Name)
+		} else {
+			fmt.Printf("标记 %s = %v\n", f.Name, f.Value)
+		}
+	}
 }
 ```
 
-## 使用示例
+## API
 
-### 基础用法
+### 解析入口
 
-```go
-// 1. 只有字段名
-result, _ := tagkit.ParseValue("fieldName")
-// result.FieldName = "fieldName"
+- **ParseTagValue**(input string) (\*TagValue, error)  
+  解析整条 tag value；若存在多个字段调用则返回错误。
 
-// 2. 字段名 + 参数
-result, _ := tagkit.ParseValue("fieldName(first:10,after:$cursor)")
-// result.Args["first"].Value = "10"
-// result.Args["after"].Placeholder = true
+### 结果结构
 
-// 3. 字段名 + 标记位
-result, _ := tagkit.ParseValue("fieldName,inline,union")
-// slices.Contains(result.Flags, "inline") = true
+- **TagValue**
+    - `Name`：唯一字段名，无字段时为空。
+    - `Args`：参数表，key 为参数名，value 为 `ArgValue`（字面量或变量）。
+    - `Variables`：变量详情列表（类型、默认值、数组维度等），便于代码生成或校验。
+    - `Flags`：标记位列表。
 
-// 4. 完整格式
-result, _ := tagkit.ParseValue("name(arg:1),inline,union=unionTypeName")
-// result.FieldName = "name"
-// result.FlagValues["union"] = "unionTypeName"
+- **ArgValue**：单个参数的值
+    - `Type`：`"literal"` 或 `"variable"`。
+    - 字面量：`Value` 为解析后的 Go 值（int、float64、bool、string 等）。
+    - 变量：`VarName`、`VarType`、`HasDefault`、`DefaultVal`、`IsArrayDefault`、`Dimension` 等。
 
-// 5. 只有标记位
-result, _ := tagkit.ParseValue(",inline,union")
-// result.FieldName = ""
-```
+- **VariableDetail**：变量的完整描述（名称、类型、默认值、数组维度、对应参数 key 等）。
 
-### 高级用法
+- **FlagInfo**：单个标记
+    - `IsBoolean`：是否为布尔标记（无 `=value`）。
+    - `Value` / `ValueType`：键值标记时的取值与类型。
 
-更多高级用法和详细示例，请参考 [文档目录](./docs/)：
+## 要求
 
-- [自定义解析器](./docs/custom-parser.md) - 创建和配置自定义解析器
-- [链式调用](./docs/method-chaining.md) - 使用链式调用简化代码
-- [全局配置](./docs/global-config.md) - 配置全局默认解析器
+- Go 1.21+
 
-**快速示例**:
+## License
 
-```go
-// 自定义解析器
-parser := tagkit.NewParser()
-parser.SetFieldNameValidatorByRegex(regexp.MustCompile(`^[a-z_]+$`))
-result, _ := parser.ParseValue("field_name")
-
-// 链式调用
-result, _ := tagkit.NewParser().
-    SetFieldNameValidatorByRegex(regexp.MustCompile(`^[A-Z][a-zA-Z0-9]*$`)).
-    ParseValue("FieldName")
-```
-
-## 核心类型
-
-```go
-// 解析结果
-type TagValue struct {
-    FieldName  string            // 字段名
-    Args       map[string]*Arg   // 参数列表
-    Flags      []string          // 布尔标记位列表
-    FlagValues map[string]string // 带值的标记位
-}
-
-// 参数元数据
-type Arg struct {
-    Name        string // 参数名
-    Value       string // 参数值
-    Placeholder bool   // 是否为占位符（$ 开头）
-    CustomName  string // 自定义变量名
-}
-```
-
-## 语法规则
-
-TagKit 支持的语法格式：
-
-```
-[字段名[(参数名:参数值,...)]] [,标记位1[=标记位值]][,标记位2[=标记位值]...]
-```
-
-**字段名**: 默认允许字母、数字、下划线、中划线（可通过自定义验证器修改）
-
-**参数格式**: `参数名:参数值`，多个参数用逗号分隔
-
-**标记位格式**:
-- 布尔标记位：`flagName`
-- 带值标记位：`flagName=value`
-
-**占位符**: `$var` 或 `$`
-
-详细语法说明请参考 [完整文档](./docs/README.md)。
-
-## API 参考
-
-### 全局函数
-
-```go
-// 解析 tag 值（使用默认解析器）
-func ParseValue(value string) (*TagValue, error)
-
-// 配置默认解析器
-func SetFieldNameValidator(validator FieldNameValidator) *Parser
-func SetFieldNameValidatorByRegex(regex *regexp.Regexp) *Parser
-```
-
-### Parser 方法
-
-```go
-// 创建解析器
-parser := tagkit.NewParser()
-
-// 设置验证器
-parser.SetFieldNameValidator(validator) *Parser
-parser.SetFieldNameValidatorByRegex(regex) *Parser
-
-// 解析
-parser.ParseValue(value) (*TagValue, error)
-```
-
-完整 API 文档请参考 [文档目录](./docs/README.md)。
-
-## 错误处理
-
-解析器会在以下情况返回错误：
-
-- 未匹配的括号
-- 括号前字段名为空
-- 字段名包含非法字符
-- 标记位存在等号但名称为空
-
-## 更多文档
-
-- [文档目录](./docs/README.md) - 详细的使用文档和示例
-- [自定义解析器](./docs/custom-parser.md) - 创建自定义解析器
-- [链式调用](./docs/method-chaining.md) - 链式调用用法
-- [全局配置](./docs/global-config.md) - 全局配置说明
-
-## 测试
-
-```bash
-go test ./test/...
-```
-
-## 许可证
-
-[MIT License](LICENSE) © [lascyb](https://github.com/lascyb)
-
-## 贡献
-
-欢迎提交 Issue 和 Pull Request！
+见仓库内 LICENSE 文件。

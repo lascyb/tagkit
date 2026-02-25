@@ -1,3 +1,3 @@
-module github.com/lascyb/tagkit
+module tagkit
 
-go 1.25.0
+go 1.25
