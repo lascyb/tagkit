@@ -20,13 +20,10 @@ type TypeNode struct {
 	InnerType *TypeNode
 }
 
-// String 将 TypeNode 序列化为 [Inner]! 或 Name! 等形式，与输入语法一致
+// String 将 TypeNode 序列化为 [Inner]! 或 Name! 等形式，与输入语法一致；列表内层非空保留，如 [String!]!
 func (t *TypeNode) String() string {
 	if t.IsList {
 		inner := t.InnerType.String()
-		if t.InnerType.IsNonNull {
-			inner = inner[:len(inner)-1]
-		}
 		s := "[" + inner + "]"
 		if t.IsNonNull {
 			s += "!"
