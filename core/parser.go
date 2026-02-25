@@ -184,25 +184,22 @@ func (p *Parser) parseValue() (Node, error) {
 	}
 }
 
-// parseVariable 解析变量形式 $name:Type=default，Type 与 default 可选；已消费 $
+// parseVariable 解析变量：$name、$name:Type=default 等；类型与默认值均可选，不写 :Type 时 VarType 为 nil；已消费 $
 func (p *Parser) parseVariable() (*VariableNode, error) {
 	if p.curToken.Type == TokenDollar {
 		p.nextToken()
 	}
 
-	if p.curToken.Type != TokenIdent {
-		return nil, fmt.Errorf("expected variable name after '$', got %v at pos %d", p.curToken, p.curToken.Pos)
+	var varName string
+	if p.curToken.Type == TokenIdent {
+		varName = p.curToken.Value
+		p.nextToken()
 	}
-
-	varName := p.curToken.Value
-	p.nextToken()
-
+	// 匿名变量：$ 后无标识符则变量名为空。类型可选：无 : 则不设置类型（VarType 为 nil）
 	var varType *TypeNode
 	if p.curToken.Type == TokenColon {
 		p.nextToken()
 		varType = p.parseType()
-	} else {
-		varType = &TypeNode{Name: "String"}
 	}
 
 	var defaultVal Node
@@ -215,7 +212,10 @@ func (p *Parser) parseVariable() (*VariableNode, error) {
 		}
 	}
 
-	raw := fmt.Sprintf("$%s:%s", varName, varType.String())
+	raw := "$" + varName
+	if varType != nil {
+		raw += ":" + varType.String()
+	}
 	if defaultVal != nil {
 		raw += "=" + defaultVal.String()
 	}

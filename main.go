@@ -77,12 +77,16 @@ func ParseTagValue(input string) (*TagValue, error) {
 				switch val := v.(type) {
 				case *core.VariableNode:
 					defaultVal, hasDefault, isArray, arrayType, dimension := extractDefault(val.DefaultValue)
+					varTypeStr := ""
+					if val.VarType != nil {
+						varTypeStr = val.VarType.String()
+					}
 
 					result.Args[k] = ArgValue{
 						Type:           "variable",
 						Value:          val.Raw,
 						VarName:        val.Name,
-						VarType:        val.VarType.String(),
+						VarType:        varTypeStr,
 						HasDefault:     hasDefault,
 						DefaultVal:     defaultVal,
 						IsArrayDefault: isArray,
@@ -91,7 +95,7 @@ func ParseTagValue(input string) (*TagValue, error) {
 
 					result.Variables = append(result.Variables, VariableDetail{
 						Name:           val.Name,
-						VarType:        val.VarType.String(),
+						VarType:        varTypeStr,
 						TypeStruct:     val.VarType,
 						DefaultValue:   defaultVal,
 						HasDefault:     hasDefault,

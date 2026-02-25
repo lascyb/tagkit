@@ -30,7 +30,8 @@ type TagValueCases struct {
 	// 存在标记时不可省略逗号：仅标记时写 ",inline" 等
 	LeadingCommaOnlyFlag string `tag:",flag=false" expect:"fields:0,flags:1"`
 	// 字段名可为空：匿名字段 (age:18,sex:man)
-	AnonymousField             string `tag:"(age:18,sex:man),inline" expect:"fields:1,flags:1"`
+	AnonymousField             string `tag:"(age:18,sex:$:String,sum:$),inline" expect:"fields:1,flags:1"`
+	AnonymousArgs              string `tag:"(sex:$:String!,sum:$,age:18),inline" expect:"fields:1,flags:1"`
 	FieldNoArgs                string `tag:"single()" expect:"fields:1,flags:0"`
 	OnlyBooleanFlags           string `tag:",verbose,debug,dryRun" expect:"fields:0,flags:3"`
 	OnlyKeyValueFlags          string `tag:",a=1,b=2,c=hello,d=true" expect:"fields:0,flags:4"`

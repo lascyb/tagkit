@@ -52,7 +52,7 @@ func (f *FieldNode) String() string {
 	return fmt.Sprintf("%s(%s)", f.Name, strings.Join(args, ","))
 }
 
-// VariableNode 变量节点，表示 $name:Type=default 形式的参数；用于字段调用中的形参
+// VariableNode 变量节点，表示 $name 或 $name:Type=default 形式的参数；Type 可选，未设置时 VarType 为 nil
 type VariableNode struct {
 	Name         string
 	VarType      *TypeNode
@@ -60,9 +60,12 @@ type VariableNode struct {
 	Raw          string
 }
 
-// String 将 VariableNode 格式化为 $name:Type 或 $name:Type=default
+// String 将 VariableNode 格式化为 $name、$name:Type 或 $name:Type=default；类型未设置时不输出 :Type
 func (v *VariableNode) String() string {
-	s := fmt.Sprintf("$%s:%s", v.Name, v.VarType.String())
+	s := "$" + v.Name
+	if v.VarType != nil {
+		s += ":" + v.VarType.String()
+	}
 	if v.DefaultValue != nil {
 		s += "=" + v.DefaultValue.String()
 	}
