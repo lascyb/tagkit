@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	tagkit "tagkit"
+	"github.com/lascyb/tagkit"
 )
 
 // TagValueCases 定义全场景测试用例：每个字段的 tag 值为真实使用场景下的 tag value（与业务中 struct field 的 tag 一致），作为 ParseTagValue 的输入。

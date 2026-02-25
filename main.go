@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"tagkit/core"
+
+	"github.com/lascyb/tagkit/core"
 )
 
 // ============ 结果结构 ============
