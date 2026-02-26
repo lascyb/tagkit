@@ -51,7 +51,7 @@ type FlagInfo struct {
 	ValueType string
 }
 
-// ParseTagValue 解析 tag 字符串为主入口，返回 TagValue 或解析错误
+// ParseTagValue 解析 tag 字符串为主入口，返回 TagValue 或解析错误；字段唯一，多个字段调用时返回错误
 func ParseTagValue(input string) (*TagValue, error) {
 	parser := core.NewParser(input)
 	nodes, err := parser.Parse()

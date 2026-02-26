@@ -45,35 +45,30 @@ func (p *Parser) popParen() (Token, bool) {
 	return t, true
 }
 
-// Parse 解析整个输入，返回 AST 节点列表；遇错或未闭合括号时返回错误。允许前导/连续逗号，视为空位不产出节点（Fields 可为空）。
-//
-// 强制前导逗号（仅标记位时）：若需约束「仅标记位时必须以逗号开头，如 ",inline"」，在此循环内处理：
-//   - 在循环开始前定义 atStart := true，表示本元素前尚未消费过逗号。
-//   - 当 p.curToken.Type == TokenComma 时，在 nextToken() 后置 atStart = false，再 continue。
-//   - 在 parseElement() 返回后，若 node 为 *FlagNode 且 atStart 为 true，则返回错误（如：expected leading comma when only flags）。
-//   - 每成功解析一个元素后置 atStart = false（或下一轮前根据是否消费逗号再设）。
+// Parse 解析整个输入，返回 AST 节点列表；遇错或未闭合括号时返回错误。
+// 允许前导/连续逗号，视为空位。标记位存在赋值（name=value）时允许省略前导逗号；仅布尔标记（裸 ident）
+// 时需本元素前已消费过逗号（afterComma）才解析为标记位，否则解析为无参字段（如 ,inline）。
 func (p *Parser) Parse() ([]Node, error) {
 	var nodes []Node
-	// ----- 强制前导逗号（仅标记位时必须以逗号开头，如 ",inline"）--------
-	// 取消下面三处注释即可启用：1) 声明 atStart  2) 遇到逗号时置 false  3) 解析出 Flag 且 atStart 时报错
-	// atStart := true
+	// 前导逗号后为 true：仅在此情况下将「无 ( 无 = 的 ident」解析为布尔标记位，否则解析为无参字段
+	afterComma := false
 
 	for p.curToken.Type != TokenEOF {
 		if p.curToken.Type == TokenComma {
 			p.nextToken()
-			// atStart = false
+			afterComma = true
 			continue
 		}
-		node, err := p.parseElement()
+		node, err := p.parseElement(afterComma)
 		if err != nil {
 			return nil, err
 		}
-		// if _, ok := node.(*FlagNode); ok && atStart { return nil, fmt.Errorf("expected leading comma when only flags, at pos %d", p.curToken.Pos) }
-		// atStart = false
+		afterComma = false
 		nodes = append(nodes, node)
 
 		if p.curToken.Type == TokenComma {
 			p.nextToken()
+			afterComma = true // 下一项在逗号后，按标记位解析
 		}
 	}
 
@@ -84,12 +79,11 @@ func (p *Parser) Parse() ([]Node, error) {
 	return nodes, nil
 }
 
-// parseElement 解析一个顶层元素：字段调用 name(...) 或标记 name / name=value；字段名可为空，即 (arg:val,...) 为匿名字段
-func (p *Parser) parseElement() (Node, error) {
+// parseElement 解析一个顶层元素。name=value 始终为标记位（可省略前导逗号）；无 ( 无 = 时，仅 afterComma 为 true 时为布尔标记位，否则为无参字段 name()。
+func (p *Parser) parseElement(afterComma bool) (Node, error) {
 	var name string
 	if p.curToken.Type == TokenLParen {
 		name = ""
-		// 匿名字段：不消费 (，交给 parseFieldCall
 	} else if p.curToken.Type == TokenIdent {
 		name = p.curToken.Value
 		p.nextToken()
@@ -100,12 +94,14 @@ func (p *Parser) parseElement() (Node, error) {
 	if p.curToken.Type == TokenLParen {
 		return p.parseFieldCall(name)
 	}
-
 	if p.curToken.Type == TokenEqual {
-		return p.parseFlagWithValue(name)
+		return p.parseFlagWithValue(name) // 存在赋值时允许省略前导逗号
 	}
-
-	return &FlagNode{Name: name, Value: nil}, nil
+	// 无 ( 无 =：仅前导逗号后解析为布尔标记位，否则为无参字段
+	if afterComma {
+		return &FlagNode{Name: name, Value: nil}, nil
+	}
+	return &FieldNode{Name: name, Args: map[string]Node{}}, nil
 }
 
 // parseFieldCall 解析 name(arg1:val1, ...) 形式的字段调用，已消费 name 与 (

@@ -10,7 +10,6 @@ type TokenType int
 const (
 	TokenEOF      TokenType = iota // {TokenEOF: 文件结束}
 	TokenIdent                     // {TokenIdent: 标识符}
-	TokenVariable                  // {TokenVariable: 变量}
 	TokenLParen                    // {TokenLParen: 左圆括号 (}
 	TokenRParen                    // {TokenRParen: 右圆括号 )}
 	TokenLBracket                  // {TokenLBracket: 左方括号 [}
@@ -34,7 +33,7 @@ type Token struct {
 
 // tokenTypeName 返回 TokenType 的可读名称，用于调试与错误信息
 func tokenTypeName(t TokenType) string {
-	names := []string{"EOF", "IDENT", "VAR", "(", ")", "[", "]", "!", ":", ",", "=", "$", "NUM", "STR", "BOOL"}
+	names := []string{"EOF", "IDENT", "(", ")", "[", "]", "!", ":", ",", "=", "$", "NUM", "STR", "BOOL"}
 	if int(t) < len(names) {
 		return names[t]
 	}
