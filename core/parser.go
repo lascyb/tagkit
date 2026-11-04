@@ -49,6 +49,19 @@ func (p *Parser) popParen() (Token, bool) {
 // 允许前导/连续逗号，视为空位。标记位存在赋值（name=value）时允许省略前导逗号；仅布尔标记（裸 ident）
 // 时需本元素前已消费过逗号（afterComma）才解析为标记位，否则解析为无参字段（如 ,inline）。
 func (p *Parser) Parse() ([]Node, error) {
+	nodes, err := p.parse()
+	// 词法错误优先：未闭合字符串会吞掉后续输入，由此产生的语法错误不如词法错误准确
+	if lexErr := p.lexer.Err(); lexErr != nil {
+		return nil, lexErr
+	}
+	if err != nil {
+		return nil, err
+	}
+	return nodes, nil
+}
+
+// parse 为 Parse 的实际实现，词法错误由 Parse 统一检查
+func (p *Parser) parse() ([]Node, error) {
 	var nodes []Node
 	// 前导逗号后为 true：仅在此情况下将「无 ( 无 = 的 ident」解析为布尔标记位，否则解析为无参字段
 	afterComma := false

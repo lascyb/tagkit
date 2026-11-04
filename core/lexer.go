@@ -1,12 +1,21 @@
 package core
 
-import "unicode"
+import (
+	"fmt"
+	"unicode"
+)
 
 // Lexer 词法分析器，将输入字符串逐字符扫描并产出 Token 流；用于解析 tag 语法前的分词
 type Lexer struct {
 	input string
 	pos   int
 	ch    byte
+	err   error // 首个词法错误（如未闭合的字符串），由 Err 返回
+}
+
+// Err 返回扫描过程中遇到的首个词法错误，无错误时返回 nil
+func (l *Lexer) Err() error {
+	return l.err
 }
 
 // NewLexer 根据输入字符串创建 Lexer 并定位到首个字符
@@ -65,22 +74,34 @@ func (l *Lexer) readNumber() string {
 	return l.input[start : l.pos-1]
 }
 
-// readString 从当前引号起读取字符串字面量，支持 \" 转义，不消费结束引号后的字符由调用方处理
+// readString 从当前引号起读取字符串字面量，支持 \" 转义，不消费结束引号后的字符由调用方处理。
+// 字符串未闭合（包括以反斜杠结尾）时返回已读取的内容并记录词法错误，不会越界
 func (l *Lexer) readString() string {
 	quote := l.ch
+	quotePos := l.pos - 1
 	l.readChar()
 	start := l.pos - 1
 
 	for l.ch != quote && l.ch != 0 {
 		if l.ch == '\\' {
 			l.readChar()
+			if l.ch == 0 {
+				// 反斜杠位于输入末尾：转义目标不存在，停止扫描，避免继续前进导致切片越界
+				break
+			}
 		}
 		l.readChar()
 	}
 
-	str := l.input[start : l.pos-1]
+	end := l.pos - 1
+	if end > len(l.input) {
+		end = len(l.input)
+	}
+	str := l.input[start:end]
 	if l.ch == quote {
 		l.readChar()
+	} else if l.err == nil {
+		l.err = fmt.Errorf("unterminated string starting at position %d", quotePos)
 	}
 	return str
 }
